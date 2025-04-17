@@ -96,7 +96,7 @@ def update_vehicle_range():
     row.set_cell('ev_info', 'electric_range', "200")
     row.commit()
 
-    new_row = table.row(row_key)
+    new_row = table.read_row(row_key)
     if new_row.cells['ev_info'][b'electric_range'][0].value.decode('utf-8') == "200":
         return 'Success'
     else:
