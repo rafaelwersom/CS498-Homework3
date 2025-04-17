@@ -92,10 +92,13 @@ def get_tesla_owners_count():
 @app.route('/update', methods=['GET'])
 def update_vehicle_range():
     row_key = b'257246118'
-    row = table.row(row_key)
-    row.set_cell('ev_info', 'electric_range', 200)
+    row = table.direct_row(row_key)
+    row.set_cell('ev_info', 'electric_range', 200.0)
     row.commit()
-    return 'Success'
+    if table.row(row_key)[b'electric_range'][0].value.decode('utf-8') == 200:
+        return 'Success'
+    else:
+        return 'Failure'
 
 
 @app.route('/delete', methods=['GET'])
@@ -104,11 +107,11 @@ def delete_records():
     for row in table.read_rows():
         model_year = row.cells['ev_info'][b'model_year'][0].value.decode('utf-8')
         if int(model_year) < 2014:
-            drow = table.row(row.row_key)
+            drow = table.direct_row(row.row_key)
             drow.delete()
-        else:
-            remaining_count += 1
-    return str(remaining_count)
+            drow.commit()
+
+    return get_row_count()
 
 
 if __name__ == '__main__':
