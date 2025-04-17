@@ -1,1 +1,115 @@
+from google.cloud import bigtable
+from google.cloud.bigtable import row
+import pandas as pd
 
+csv_path = "Electric_Vehicle_Population_Data.csv"
+
+df = pd.read_csv(csv_path)
+
+df = df[['DOL Vehicle ID', 'Make', 'Model', 'Model Year', 'Electric Range', 'City', 'County']]
+df = df.dropna(subset=['DOL Vehicle ID'])
+
+df.columns = [col.strip().lower().replace(' ', '_') for col in df.columns]
+
+project_id = "cs-498-project-454722"
+instance_id = "ev-bigtable"
+table_id = "ev-population"
+column_family_id = "ev_info"
+
+client = bigtable.Client(project=project_id, admin=True)
+instance = client.instance(instance_id)
+table = instance.table(table_id)
+
+def create_row(vehicle):
+    row_key = str(vehicle['dol_vehicle_id']).encode()
+    bt_row = table.direct_row(row_key)
+
+    for column in ['make', 'model', 'model_year', 'electric_range', 'city', 'county']:
+        value = str(vehicle[column]) if pd.notna(vehicle[column]) else ''
+        bt_row.set_cell(column_family_id, column.encode(), value.encode())
+    
+    return bt_row
+
+batch_size = 1000
+rows = []
+
+for idx, vehicle in df.iterrows():
+    rows.append(create_row(vehicle))
+
+    if len(rows) >= batch_size:
+        table.mutate_rows(rows)
+        print(f"Inserted {idx + 1} rows...")
+        rows = []
+
+if rows:
+    table.mutate_rows(rows)
+    print(f"Inserted final batch of {len(rows)} rows.")
+
+print("Dataset loaded into Bigtable successfully.")
+
+-------------------------------------------------------------------------------------------------------
+
+from flask import Flask
+from google.cloud import bigtable
+
+app = Flask(__name__)
+
+client = bigtable.Client(project='cs-498-project-454722', admin=True)
+instance = client.instance('ev-bigtable')
+table = instance.table('ev-population')
+
+
+@app.route('/rows', methods=['GET'])
+def get_row_count():
+    row_count = 0
+    for row in table.read_rows():
+        row_count += 1
+    return str(row_count)
+
+
+@app.route('/Best-BMW', methods=['GET'])
+def get_best_bmw_count():
+    bmw_count = 0
+    for row in table.read_rows():
+        make = row.cells['ev_info'][b'make'][0].value.decode('utf-8')
+        electric_range = row.cells['ev_info'][b'electric_range'][0].value.decode('utf-8')
+        if make == 'BMW' and float(electric_range) > 100:
+            bmw_count += 1
+    return str(bmw_count)
+
+
+@app.route('/tesla-owners', methods=['GET'])
+def get_tesla_owners_count():
+    tesla_count = 0
+    for row in table.read_rows():
+        make = row.cells['ev_info'][b'make'][0].value.decode('utf-8')
+        city = row.cells['ev_info'][b'city'][0].value.decode('utf-8')
+        if make == 'TESLA' and city == 'Seattle':
+            tesla_count += 1
+    return str(tesla_count)
+
+
+@app.route('/update', methods=['POST'])
+def update_vehicle_range():
+    row_key = b'257246118'
+    row = table.row(row_key)
+    row.set_cell('ev_info', 'electric_range', 200)
+    row.commit()
+    return '"Success"'
+
+
+@app.route('/delete', methods=['POST'])
+def delete_records():
+    remaining_count = 0
+    for row in table.read_rows():
+        model_year = row.cells['ev_info'][b'model_year'][0].value.decode('utf-8')
+        if int(model_year) < 2014:
+            drow = table.row(row.row_key)
+            drow.delete()
+        else:
+            remaining_count += 1
+    return str(remaining_count)
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', debug=True)
