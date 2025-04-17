@@ -89,7 +89,7 @@ def get_tesla_owners_count():
     return str(tesla_count)
 
 
-@app.route('/update', methods=['POST'])
+@app.route('/update', methods=['GET'])
 def update_vehicle_range():
     row_key = b'257246118'
     row = table.row(row_key)
@@ -98,7 +98,7 @@ def update_vehicle_range():
     return '"Success"'
 
 
-@app.route('/delete', methods=['POST'])
+@app.route('/delete', methods=['GET'])
 def delete_records():
     remaining_count = 0
     for row in table.read_rows():
