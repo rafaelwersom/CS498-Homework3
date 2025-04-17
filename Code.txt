@@ -93,9 +93,9 @@ def get_tesla_owners_count():
 def update_vehicle_range():
     row_key = b'257246118'
     row = table.direct_row(row_key)
-    row.set_cell('ev_info', 'electric_range', 200.0)
+    row.set_cell('ev_info', 'electric_range', "200")
     row.commit()
-    if table.row(row_key)[b'electric_range'][0].value.decode('utf-8') == 200:
+    if table.row(row_key)[b'electric_range'][0].value.decode('utf-8') == "200":
         return 'Success'
     else:
         return 'Failure'
