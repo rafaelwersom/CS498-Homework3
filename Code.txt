@@ -95,7 +95,7 @@ def update_vehicle_range():
     row = table.row(row_key)
     row.set_cell('ev_info', 'electric_range', 200)
     row.commit()
-    return '"Success"'
+    return 'Success'
 
 
 @app.route('/delete', methods=['GET'])
